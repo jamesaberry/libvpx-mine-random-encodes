@@ -1,11 +1,15 @@
 #!/usr/bin/python
 
-import sys, random
+import sys, random, platform
 from os import path
 from os import system
+from os import remove
 from os.path import basename
 from datetime import datetime
-import subprocess
+import subprocess 
+
+cur_encoded = 0
+art_found = 0
 
 def output_settings(output_file_str, commandline):
     
@@ -52,7 +56,21 @@ def select_quantifers(qparams):
 
 def run_random_encode():
     
+    global cur_encoded
+    global art_found
+    
+    system = platform.system()
+    
+    if system == "Windows":
+        slash = "\\"
+        vpxenc = "\\vpxenc.exe "
+    else:
+        slash = "/"
+        vpxenc = "/vpxenc "
+    
     pathstr = path.abspath(sys.modules['__main__'].__file__)
+    
+    art_line_break = "-------------------------------------------------"
     
     # must not be = and must be at least 8 apart
     qparams = {"--min-q=" : [0,63], 
@@ -98,15 +116,31 @@ def run_random_encode():
         + select_params(params) + profile_str + " " + end_use_str  \
         + " --output=" + output_file_str + " " + input_file_str
     
-    output_settings(output_file_str, commandline)
-    
-    run_cmd = pathstr.rsplit('\\',1)[0] + "\\vpxenc.exe " + commandline
-    
-    with open(output_file_str + ".log", 'w') as output_f:
-        subprocess.Popen(run_cmd, stdout=output_f, stderr=output_f)
+    cur_encoded += 1
+    print("===================================================================")
+    print("Current Encode: " + str(cur_encoded) + " - " + output_file_str)
 
-    system(run_cmd)
+    run_cmd = pathstr.rsplit(slash, 1)[0] + vpxenc + commandline
+    proc = subprocess.Popen(run_cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    result_str = proc.stdout.read().decode("utf-8")
+
+    # if possible artifact found output more information else delete encode
+    if art_line_break in result_str:
+        
+        output_settings(output_file_str, commandline)
+            
+        with open(output_file_str + ".log", 'w') as output_f:
+            output_f.write(result_str)
+        
+        art_found += 1
+        print("     Possible Artifacts Found - Current Count: " + str(art_found))
     
+    else:
+        
+        print("     Possible Artifact Not Found")
+        remove(output_file_str)
+        
+
 def main(argv):
     
     while True:
