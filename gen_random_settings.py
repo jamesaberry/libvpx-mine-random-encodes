@@ -11,9 +11,9 @@ import subprocess
 cur_encoded = 0
 art_found = 0
 
-def output_settings(output_file_str, commandline):
+def output_settings(enc_file_str, commandline):
     
-    text_file = open(output_file_str + ".settiings", "w")
+    text_file = open(enc_file_str + ".settiings", "w")
     text_file.write(commandline)
     text_file.close()
 
@@ -64,9 +64,11 @@ def run_random_encode():
     if system == "Windows":
         slash = "\\"
         vpxenc = "\\vpxenc.exe "
+        vpxdec = "\\vpxdec.exe "
     else:
         slash = "/"
         vpxenc = "/vpxenc "
+        vpxdec = "/vpxdec "
     
     pathstr = path.abspath(sys.modules['__main__'].__file__)
     
@@ -110,15 +112,15 @@ def run_random_encode():
     end_use_str = "--end-usage=" + ["vbr", "cbr", "cq", "q"][random.randint(0, 3)]
     profile_str = "--profile=" + str(random.choice([0]))
     input_file_str = random.choice(input_files)
-    output_file_str = generate_output_file_name(input_file_str)
+    enc_file_str = generate_output_file_name(input_file_str)
     
     commandline = "--verbose --psnr " + select_quantifers(qparams) \
         + select_params(params) + profile_str + " " + end_use_str  \
-        + " --output=" + output_file_str + " " + input_file_str
+        + " --output=" + enc_file_str + " " + input_file_str
     
     cur_encoded += 1
     print("===================================================================")
-    print("Current Encode: " + str(cur_encoded) + " - " + output_file_str)
+    print("Current Encode: " + str(cur_encoded) + " - " + enc_file_str)
 
     run_cmd = pathstr.rsplit(slash, 1)[0] + vpxenc + commandline
     proc = subprocess.Popen(run_cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -127,10 +129,26 @@ def run_random_encode():
     # if possible artifact found output more information else delete encode
     if art_line_break in result_str:
         
-        output_settings(output_file_str, commandline)
-            
-        with open(output_file_str + ".log", 'w') as output_f:
+        # record encode settings
+        output_settings(enc_file_str, commandline)
+
+        # log console output
+        with open(enc_file_str + ".log", 'w') as output_f:
             output_f.write(result_str)
+        
+        # decode encode for visual inspection
+        dec_file_str = enc_file_str + ".yuv"
+        dec_cmd = pathstr.rsplit(slash, 1)[0] + vpxdec + enc_file_str + " -o " \
+            + dec_file_str + " --rawvideo"
+        
+        # decode file and record output to log
+        print(dec_cmd)
+        dec_proc = subprocess.Popen(dec_cmd.split(" "), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        dec_str = dec_proc.stdout.read().decode("utf-8")
+        
+        # log decode console output
+        with open(dec_file_str + ".log", 'w') as output_f:
+            output_f.write(dec_str)
         
         art_found += 1
         print("     Possible Artifacts Found - Current Count: " + str(art_found))
@@ -138,7 +156,7 @@ def run_random_encode():
     else:
         
         print("     Possible Artifact Not Found")
-        remove(output_file_str)
+        remove(enc_file_str)
         
 
 def main(argv):
